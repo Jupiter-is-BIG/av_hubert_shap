@@ -10,7 +10,7 @@ import random
 import numpy as np
 from typing import Dict, List, Optional, Tuple
 
-def load_video(path):
+def load_video(path, distort_fn=None):
     for i in range(3):
         try:
             cap = cv2.VideoCapture(path)
@@ -18,6 +18,8 @@ def load_video(path):
             while True:
                 ret, frame = cap.read()
                 if ret:
+                    if distort_fn is not None:
+                        frame = distort_fn(frame)
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                     frames.append(frame)
                 else:

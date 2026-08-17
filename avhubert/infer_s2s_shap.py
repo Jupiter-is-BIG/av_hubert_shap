@@ -111,6 +111,9 @@ class OverrideConfig(FairseqDataclass):
     noise_wav: Optional[str] = field(default=None, metadata={'help': 'noise wav file'})
     noise_prob: float = field(default=0, metadata={'help': 'noise probability'})
     noise_snr: float = field(default=0, metadata={'help': 'noise SNR in audio'})
+    visual_noise_type: Optional[str] = field(default=None, metadata={'help': 'visual distortion type: CS|CC|BW|GNC|GB|JPEG|VC|random'})
+    visual_noise_prob: float = field(default=0, metadata={'help': 'probability of applying visual distortion'})
+    visual_noise_level: str = field(default='1', metadata={'help': 'visual distortion severity level 1-5, or random'})
     modalities: List[str] = field(default_factory=lambda: [""], metadata={'help': 'which modality to use'})
     data: Optional[str] = field(default=None, metadata={'help': 'path to test data directory'})
     label_dir: Optional[str] = field(default=None, metadata={'help': 'path to test label directory'})
@@ -225,7 +228,16 @@ def _main(cfg, output_file):
     task.cfg.noise_prob = cfg.override.noise_prob
     task.cfg.noise_snr = cfg.override.noise_snr
     task.cfg.noise_wav = cfg.override.noise_wav
-    
+
+    # Set visual distortion parameters
+    task.cfg.visual_noise_type = cfg.override.visual_noise_type
+    task.cfg.visual_noise_prob = cfg.override.visual_noise_prob
+    task.cfg.visual_noise_level = cfg.override.visual_noise_level
+    logger.info(
+        f"Visual distortion: type={cfg.override.visual_noise_type}, "
+        f"prob={cfg.override.visual_noise_prob}, level={cfg.override.visual_noise_level}"
+    )
+
     # Set data and label paths from overrides
     if cfg.override.data is not None:
         task.cfg.data = cfg.override.data

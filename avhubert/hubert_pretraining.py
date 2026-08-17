@@ -155,6 +155,9 @@ class AVHubertPretrainingConfig(FairseqDataclass):
     noise_prob: float = field(default=0, metadata={'help': 'noise probability'})
     noise_snr: Optional[str] = field(default='0', metadata={'help': 'noise SNR in audio'})
     noise_num: int = field(default=1, metadata={'help': 'number of noise wav files to mix'})
+    visual_noise_type: Optional[str] = field(default=None, metadata={'help': 'visual distortion type: CS|CC|BW|GNC|GB|JPEG|VC|random'})
+    visual_noise_prob: float = field(default=0, metadata={'help': 'probability of applying visual distortion'})
+    visual_noise_level: str = field(default='1', metadata={'help': 'visual distortion severity level 1-5, or random'})
     fine_tuning: bool = field(default=False, metadata={"help": "set to true if fine-tuning AV-Hubert"})
 
 @register_task("av_hubert_pretraining", dataclass=AVHubertPretrainingConfig)
@@ -268,7 +271,10 @@ class AVHubertPretrainingTask(FairseqTask):
             noise_fn=noise_fn,
             noise_prob=self.cfg.noise_prob,
             noise_snr=noise_snr,
-            noise_num=noise_num
+            noise_num=noise_num,
+            visual_noise_type=self.cfg.visual_noise_type,
+            visual_noise_prob=self.cfg.visual_noise_prob,
+            visual_noise_level=self.cfg.visual_noise_level,
         )
 
     def max_positions(self) -> Tuple[int, int]:

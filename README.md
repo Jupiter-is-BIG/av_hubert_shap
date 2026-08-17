@@ -21,6 +21,12 @@ override.modalities=['audio','video'] common.user_dir=`pwd` generation.beam=1 \
 +override.noise_wav=[path_to_noise] override.noise_prob=1 override.noise_snr=-10
 ```
 
+To instead sweep visual distortion severity (audio clean, video degraded), swap the last line for e.g.:
+
+```Shell
+override.visual_noise_type=GB override.visual_noise_prob=1 override.visual_noise_level=3
+```
+
  <details open>
   <summary><strong>Main Arguments</strong></summary>
 
@@ -34,6 +40,9 @@ override.modalities=['audio','video'] common.user_dir=`pwd` generation.beam=1 \
 - `common_eval.results_path`: The decoding results will be saved at this path.
 - `override.noise_wav`: The path to the folder containing noise manifest files ([path_to_noise]/{valid,test}.tsv).
 - `override.noise_snr`: The SNR level of acoustic noise to test on. Drop `override.noise_prob` and `override.noise_snr` if you want to test in clean conditions.
+- `override.visual_noise_type`: The visual distortion to apply to the video stream. Choices: [`CS`, `CC`, `BW`, `GNC`, `GB`, `JPEG`, `VC`, `random`] (color saturation, color contrast, block-wise noise, Gaussian noise, Gaussian blur, JPEG compression, ffmpeg video compression, or a random pick per sample). Drop `override.visual_noise_type`/`override.visual_noise_prob`/`override.visual_noise_level` if you want to test on clean video.
+- `override.visual_noise_prob`: Probability of applying the visual distortion to a given sample (set to `1` for deterministic evaluation, matching `override.noise_prob` for audio).
+- `override.visual_noise_level`: Severity level `1` (mildest) to `5` (worst), or `random`.
 
 </details>
 

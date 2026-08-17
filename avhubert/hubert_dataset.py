@@ -8,7 +8,9 @@ import itertools
 import logging
 import os
 import sys
+import tempfile
 import time
+import uuid
 from typing import Any, List, Optional, Union
 
 import numpy as np
@@ -24,6 +26,7 @@ DBG=True if len(sys.argv) == 1 else False
 
 if DBG:
     import utils as custom_utils
+    import distortions
     logging.basicConfig(
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
@@ -32,6 +35,7 @@ if DBG:
     )
 else:
     from . import utils as custom_utils
+    from . import distortions
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +171,10 @@ class AVHubertDataset(FairseqDataset):
             noise_fn=None,
             noise_prob=0,
             noise_snr=0,
-            noise_num=1
+            noise_num=1,
+            visual_noise_type=None,
+            visual_noise_prob=0,
+            visual_noise_level='1',
     ):
         self.label_rates = (
             [label_rates for _ in range(len(label_paths))]
@@ -189,6 +196,7 @@ class AVHubertDataset(FairseqDataset):
         self.store_labels = store_labels
         self.is_s2s = is_s2s
         self.noise_wav, self.noise_prob, self.noise_snr, self.noise_num = [ln.strip() for ln in open(noise_fn).readlines()] if noise_fn is not None else [], noise_prob, noise_snr, noise_num
+        self.visual_noise_type, self.visual_noise_prob, self.visual_noise_level = visual_noise_type, visual_noise_prob, visual_noise_level
 
         assert self.single_target == (self.label_rates[0] == -1), f"single target should be equivalent to sequence label (label_rate==-1)"
         if store_labels:
@@ -232,6 +240,9 @@ class AVHubertDataset(FairseqDataset):
             f"seqs2seq data={self.is_s2s},")
         logger.info(
             f"Noise wav: {noise_fn}->{len(self.noise_wav)} wav, Prob: {self.noise_prob}, SNR: {self.noise_snr}, Number of mixture: {self.noise_num}"
+        )
+        logger.info(
+            f"Visual distortion: type={self.visual_noise_type}, prob={self.visual_noise_prob}, level={self.visual_noise_level}"
         )
 
     def get_label(self, index, label_idx):
@@ -296,10 +307,33 @@ class AVHubertDataset(FairseqDataset):
         return video_feats, audio_feats
 
     def load_video(self, audio_name):
-        feats = custom_utils.load_video(os.path.join(self.audio_root, audio_name))
+        video_path = os.path.join(self.audio_root, audio_name)
+        distort_fn, compressed_path = None, None
+
+        if self.visual_noise_type is not None and np.random.rand() < self.visual_noise_prob:
+            dist_type, level = distortions.resolve_distortion(self.visual_noise_type, self.visual_noise_level)
+            if dist_type == 'VC':
+                compressed_path = self.compress_video(video_path, level)
+                video_path = compressed_path
+            else:
+                distort_fn = lambda frame, _t=dist_type, _l=level: distortions.apply_frame_distortion(frame, _t, _l)
+
+        try:
+            feats = custom_utils.load_video(video_path, distort_fn=distort_fn)
+        finally:
+            if compressed_path is not None and os.path.exists(compressed_path):
+                os.remove(compressed_path)
+
         feats = self.transform(feats)
         feats = np.expand_dims(feats, axis=-1)
         return feats
+
+    def compress_video(self, video_path, level):
+        """Re-encode a clip with ffmpeg at a given CRF severity level ('VC' distortion)."""
+        param = distortions.get_distortion_param('VC', level)
+        out_path = os.path.join(tempfile.gettempdir(), f"avhubert_vc_{uuid.uuid4().hex}.mp4")
+        distortions.video_compression(video_path, out_path, param)
+        return out_path
 
     def select_noise(self):
         rand_indexes = np.random.randint(0, len(self.noise_wav), size=self.noise_num)
